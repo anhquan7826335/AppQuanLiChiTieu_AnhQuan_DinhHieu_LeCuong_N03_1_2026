@@ -108,20 +108,11 @@ class HomePage extends StatelessWidget {
           ),
         ],
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 0, // Home
+      bottomNavigationBar: AppBottomNavigation(
+        currentIndex: 0,
         onTap: (index) {
-          if (index == 1) {
-            Navigator.pushReplacementNamed(context, '/detail');
-          } else if (index == 2) {
-            Navigator.pushReplacementNamed(context, '/contact');
-          }
+          Navigator.pushReplacementNamed(context, ['/home','/content','/contact'][index]);
         },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.info), label: 'Detail'),
-          BottomNavigationBarItem(icon: Icon(Icons.contacts), label: 'About'),
-        ],
       ),
     );
   }
