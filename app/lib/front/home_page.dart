@@ -1,5 +1,6 @@
 
 import 'package:flutter/material.dart';
+import 'package:app/widget/bottom_navigation.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});

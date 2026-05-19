@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app/widget/bottom_navigation.dart';
 
 class AboutPage extends StatefulWidget {
   const AboutPage({super.key});

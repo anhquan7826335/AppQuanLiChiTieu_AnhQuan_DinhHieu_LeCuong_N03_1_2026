@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'front/about_page.dart';
-import 'front/content_page.dart';
-import 'front/home_page.dart';
+import '../front/about_page.dart';
+import '../front/content_page.dart';
+import '../front/home_page.dart';
 import '../entities/user.dart';
 import '../controller/list_user.dart';
 
@@ -246,7 +246,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   final List<Widget> _pages = const [
     HomePage(),
-    DetailPage(),
+    ContentPage(),
     AboutPage(),
   ];
 
@@ -272,7 +272,7 @@ class _MyHomePageState extends State<MyHomePage> {
       initialRoute: '/home',
       routes: {
         '/home': (context) => const HomePage(),
-        '/detail': (context) => const DetailPage(),
+        '/content': (context) => const ContentPage(),
         '/contact': (context) => const AboutPage(),
       },
       home: Scaffold(
@@ -286,14 +286,14 @@ class _MyHomePageState extends State<MyHomePage> {
             if (index == 0) {
               Navigator.pushReplacementNamed(context, '/home');
             } else if (index == 1) {
-              Navigator.pushReplacementNamed(context, '/detail');
+              Navigator.pushReplacementNamed(context, '/content');
             } else if (index == 2) {
               Navigator.pushReplacementNamed(context, '/contact');
             }
           },
           items: const [
             BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-            BottomNavigationBarItem(icon: Icon(Icons.info), label: 'Detail'),
+            BottomNavigationBarItem(icon: Icon(Icons.info), label: 'Content'),
             BottomNavigationBarItem(icon: Icon(Icons.contacts), label: 'About'),
           ],
         ),
