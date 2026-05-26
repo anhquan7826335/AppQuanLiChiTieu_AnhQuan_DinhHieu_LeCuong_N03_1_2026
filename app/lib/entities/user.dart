@@ -1,6 +1,9 @@
 // Định nghĩa lớp User dùng trong dự án Quản lý Chi tiêu
 
-class User {
+import 'BaseEntity.dart';
+
+class User extends BaseEntity {
+  @override
   final int id;
   String name;
   String email;
@@ -29,6 +32,7 @@ class User {
   }
 
   // Chuyển User -> Map để lưu trữ (JSON/DB)
+  @override
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -73,13 +77,4 @@ class User {
   String toString() {
     return 'User{id: $id, name: $name, email: $email}';
   }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    return other is User && other.id == id;
-  }
-
-  @override
-  int get hashCode => id.hashCode;
 }

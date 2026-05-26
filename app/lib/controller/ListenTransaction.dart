@@ -1,9 +1,11 @@
 import 'dart:io';
-import '../entities/Transaction.dart';
 import 'dart:convert';
-class ListTransaction {
-  
-  List<Transaction> listTransaction = [];
+import '../entities/Transaction.dart';
+import 'entity_repository.dart';
+
+class ListTransaction extends EntityRepository<Transaction> {
+  List<Transaction> get listTransaction => items;
+
   //CREATE:
 
   void inputTransactions() {
@@ -25,17 +27,20 @@ class ListTransaction {
       DateTime date = DateTime.parse(dateInput);
 
       var t = Transaction(id, description, amount, date);
-      listTransaction.add(t);
+      create(t);
       print("Đã thêm Transaction $id");
     }
   }
 
   // READ: 
-  void readAll() {
+  @override
+  List<Transaction> readAll() {
+    final items = super.readAll();
     print("Danh sách Transaction:");
-    for (var t in listTransaction) {
+    for (var t in items) {
       t.showInfo();
     }
+    return items;
   }
 
   // UPDATE: 
@@ -63,17 +68,18 @@ class ListTransaction {
     print("Không tìm thấy Transaction có id $id");
   }
   String toJson() {
-    return jsonEncode(listTransaction.map((t) => t.toJson()).toList());
+    return toJsonString();
   }
+
   void showAll() {
     print("Danh sách Transaction:");
     for (var t in listTransaction) {
       t.showInfo();
+    }
   }
-}
+
   // Nhập danh sách từ JSON
   void fromJson(String jsonString) {
-    List<dynamic> data = jsonDecode(jsonString);
-    listTransaction = data.map((e) => Transaction.fromJson(e)).toList();
+    loadFromJson(jsonString, (json) => Transaction.fromJson(json));
   }
 }

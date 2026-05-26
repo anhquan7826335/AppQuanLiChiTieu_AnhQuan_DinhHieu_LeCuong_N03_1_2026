@@ -1,49 +1,53 @@
+import 'BaseEntity.dart';
 
+class Transaction extends BaseEntity {
+  @override
+  int id;
+  String description;
+  double amount;
+  DateTime date;
 
-class Transaction {
-  int _id;
-  String _description;
-  double _amount;
-  DateTime _date;
+  Transaction(this.id, this.description, this.amount, this.date);
 
-  
-  Transaction(this._id, this._description, this._amount, this._date);
+  // Giữ lại các alias getter/setter cũ để tương thích với mã hiện tại
+  int get transactionId => id;
+  set transactionId(int value) => id = value;
 
-  // Getter & Setter cho id
-  int get transactionId => _id;
-  set transactionId(int id) => _id = id;
+  String get transactionDescription => description;
+  set transactionDescription(String value) => description = value;
 
-  // Getter & Setter cho description
-  String get transactionDescription => _description;
-  set transactionDescription(String description) => _description = description;
+  double get transactionAmount => amount;
+  set transactionAmount(double value) => amount = value;
 
-  // Getter & Setter cho amount
-  double get transactionAmount => _amount;
-  set transactionAmount(double amount) => _amount = amount;
-
-  // Getter & Setter cho date
-  DateTime get transactionDate => _date;
-  set transactionDate(DateTime date) => _date = date;
+  DateTime get transactionDate => date;
+  set transactionDate(DateTime value) => date = value;
 
   void showInfo() {
-    print("ID: $_id, Mô tả: $_description, Số tiền: $_amount, Ngày: $_date");
+    print("ID: $id, Mô tả: $description, Số tiền: $amount, Ngày: $date");
   }
+
+  @override
   Map<String, dynamic> toJson() {
     return {
-      'id': _id,
-      'description': _description,
-      'amount': _amount,
-      'date': _date.toIso8601String(),
+      'id': id,
+      'description': description,
+      'amount': amount,
+      'date': date.toIso8601String(),
     };
   }
 
   factory Transaction.fromJson(Map<String, dynamic> json) {
     return Transaction(
-      json['id'],
-      json['description'],
-      json['amount'],
-      DateTime.parse(json['date']),
+      json['id'] as int,
+      json['description'] as String,
+      (json['amount'] as num).toDouble(),
+      DateTime.parse(json['date'] as String),
     );
+  }
+
+  @override
+  String toString() {
+    return 'Transaction{id: $id, description: $description, amount: $amount, date: $date}';
   }
 }
 
