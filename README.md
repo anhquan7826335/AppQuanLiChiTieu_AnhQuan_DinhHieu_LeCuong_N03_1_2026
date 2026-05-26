@@ -46,11 +46,6 @@
 - Có thể mở rộng:
   - Thêm / sửa / xoá giao dịch
  
-- Tiến độ hiện tại :
-+ Thêm thanh điều hướng ở đầu body (_TopNavBar) — logo, menu, nút Sign in / Register; responsive (menu popup trên màn hình nhỏ).
-+ Giữ lại 3 content block (mỗi block: ảnh trái, tiêu đề, mô tả, nút hành động) dưới phần heading/subheading.
-+ Thêm section lưới 6 card (_SixCardGrid) hiển thị 6 thẻ nội dung (2 hàng × 3 cột trên màn hình rộng; co về 2 hoặc 1 cột trên màn hình nhỏ).
-+ Các widget phụ: _ContentBlock, _TopNavBar, _SixCardGrid, _GridCard, _GridItemData, _NavText — tất cả nằm trong cùng file để dễ theo dõi.
 
 ---
 
