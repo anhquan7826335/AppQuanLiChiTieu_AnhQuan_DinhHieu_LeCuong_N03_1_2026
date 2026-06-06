@@ -1,30 +1,25 @@
 ﻿import 'package:flutter/material.dart';
-import 'package:app/front/about_page.dart';
-import 'package:app/front/content_page.dart';
-import 'package:app/front/home_page.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
-void main() {
-  runApp(const MyApp());
-}
+import 'app.dart';
+import 'providers.dart';
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Hive.initFlutter();
 
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Ứng dụng thu chi',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        scaffoldBackgroundColor: const Color(0xFFF0F0F0),
-      ),
-      initialRoute: '/home',
-      routes: {
-        '/home': (context) => const HomePage(),
-        '/content': (context) => const ContentPage(),
-        '/contact': (context) => const AboutPage(),
-      },
-    );
-  }
+  // Tạo container & init services trước khi runApp
+  final container = ProviderContainer();
+  await Future.wait([
+    container.read(authServiceProvider).init(),
+    container.read(expenseServiceProvider).init(),
+  ]);
+
+  runApp(
+    UncontrolledProviderScope(
+      container: container,
+      child: const SpendingApp(),
+    ),
+  );
 }
