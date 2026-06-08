@@ -1,5 +1,4 @@
-// lib/services/firebase_database_service.dart
-// ✅ Thay thế appwrite_database_service.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// Collection paths trong Firestore
