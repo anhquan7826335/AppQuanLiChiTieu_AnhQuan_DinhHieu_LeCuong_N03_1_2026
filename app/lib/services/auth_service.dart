@@ -1,10 +1,10 @@
+// lib/services/auth_service.dart
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:http/http.dart' as http;
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/user.dart';
-import '../utils/constants.dart';
 
 const _kSessionBox = 'session_box';
 const _kCurrentUserKey = 'current_user';
@@ -12,6 +12,8 @@ const _kCurrentUserKey = 'current_user';
 class AuthService extends ChangeNotifier {
   Box<String>? _session;
   bool _initialized = false;
+
+  final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
 
   // ===== lifecycle =====
   Future<void> init() async {
@@ -21,6 +23,14 @@ class AuthService extends ChangeNotifier {
     } else {
       _session = Hive.box<String>(_kSessionBox);
     }
+
+    // ✅ Nếu Firebase đã có session (user đã đăng nhập trước đó),
+    //    tự động cập nhật Hive cache.
+    final firebaseUser = _firebaseAuth.currentUser;
+    if (firebaseUser != null) {
+      await _saveFirebaseUserToHive(firebaseUser);
+    }
+
     _initialized = true;
     notifyListeners();
   }
@@ -46,45 +56,24 @@ class AuthService extends ChangeNotifier {
 
   bool get isLoggedIn => currentUser != null;
 
-  // ===== session =====
-  Future<void> logout() async {
-    await _ensureInit();
-    final box = _session;
-    if (box == null) return;
-    await box.delete(_kCurrentUserKey);
-    notifyListeners();
-  }
-
-  Future<void> nukeSession() async {
-    await _ensureInit();
-    final box = _session;
-    if (box != null) await box.clear();
-    notifyListeners();
-  }
-
   // ===== helpers =====
-  Map<String, dynamic> _decode(http.Response res) {
-    try {
-      return jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
-    } catch (_) {
-      return {'ok': false, 'error': 'Phản hồi không hợp lệ từ server'};
-    }
-  }
-
-  String _ymd(DateTime d) => d.toIso8601String().split('T').first;
-
-  DateTime? _parseDate(dynamic v) {
-    if (v == null) return null;
-    final s = v.toString().trim();
-    try {
-      // chấp nhận 'YYYY-MM-DD' hoặc full ISO
-      return DateTime.parse(s.length > 10 ? s : '${s}T00:00:00');
-    } catch (_) {
-      return null;
+  Future<void> _saveFirebaseUserToHive(User firebaseUser) async {
+    final appUser = AppUser(
+      id: firebaseUser.uid,
+      email: firebaseUser.email ?? '',
+      displayName: firebaseUser.displayName ?? '',
+      passwordHash: '', // không lưu hash ở client
+      role: 'user',
+    );
+    final box = _session;
+    if (box != null) {
+      await box.put(_kCurrentUserKey, jsonEncode(appUser.toJson()));
     }
   }
 
   // ===== API =====
+
+  /// ✅ Đăng ký bằng Firebase Auth
   Future<void> register({
     required String email,
     required String password,
@@ -94,87 +83,112 @@ class AuthService extends ChangeNotifier {
   }) async {
     await _ensureInit();
 
-    final body = <String, dynamic>{
-      'email': email.trim(),
-      'password': password,
-      'name': name.trim(),
-      if (gender != null) 'gender': gender,
-      if (birthday != null) 'birthday': _ymd(birthday),
-    };
+    try {
+      final credential = await _firebaseAuth.createUserWithEmailAndPassword(
+        email: email.trim(),
+        password: password,
+      );
 
-    final res = await http.post(
-      Uri.parse('${AppConfig.baseUrl}/auth_register.php'),
-      headers: {'Content-Type': 'application/json; charset=UTF-8'},
-      body: jsonEncode(body),
-    );
+      // Cập nhật displayName
+      await credential.user?.updateDisplayName(name.trim());
+      await credential.user?.reload();
 
-    final data = _decode(res);
-    if (res.statusCode != 200 || data['ok'] != true) {
-      throw Exception(data['error'] ?? 'Đăng ký thất bại');
+      final updatedUser = _firebaseAuth.currentUser;
+      if (updatedUser != null) {
+        await _saveFirebaseUserToHive(updatedUser);
+      }
+
+      notifyListeners();
+    } on FirebaseAuthException catch (e) {
+      throw Exception(_mapFirebaseError(e));
     }
   }
 
+  /// ✅ Đăng nhập bằng Firebase Auth
   Future<void> login({
     required String email,
     required String password,
   }) async {
     await _ensureInit();
 
-    final res = await http.post(
-      Uri.parse('${AppConfig.baseUrl}/auth_login.php'),
-      headers: {'Content-Type': 'application/json; charset=UTF-8'},
-      body: jsonEncode({'email': email.trim(), 'password': password}),
-    );
+    try {
+      final credential = await _firebaseAuth.signInWithEmailAndPassword(
+        email: email.trim(),
+        password: password,
+      );
 
-    final data = _decode(res);
-    if (res.statusCode != 200 || data['ok'] != true) {
-      throw Exception(data['error'] ?? 'Sai email hoặc mật khẩu');
+      final firebaseUser = credential.user;
+      if (firebaseUser != null) {
+        await _saveFirebaseUserToHive(firebaseUser);
+      }
+
+      notifyListeners();
+    } on FirebaseAuthException catch (e) {
+      throw Exception(_mapFirebaseError(e));
     }
-
-    final u = (data['data']?['user'] ?? {}) as Map<String, dynamic>;
-    final appUser = AppUser(
-      id: (u['id'] ?? '').toString(),
-      email: (u['email'] ?? email).toString(),
-      displayName: (u['name'] ?? u['displayName'] ?? '').toString(),
-      passwordHash: '', // không lưu hash ở client
-      gender: u['gender'] as String?,
-      birthday: _parseDate(u['birthday']),
-      // chú ý: chỉ set các field có trong AppUser hiện tại.
-      // nếu AppUser của bạn đã có 'role', hãy đảm bảo model có field đó.
-      role: (u['role'] ?? 'user').toString(),
-    );
-
-    final box = _session;
-    if (box != null) {
-      await box.put(_kCurrentUserKey, jsonEncode(appUser.toJson()));
-    }
-    notifyListeners();
   }
 
+  /// ✅ Đổi mật khẩu
   Future<void> changePassword({
     required String oldPwd,
     required String newPwd,
   }) async {
     await _ensureInit();
 
-    final uid = currentUser?.id;
-    if (uid == null || uid.isEmpty) {
-      throw Exception('Chưa đăng nhập');
+    final firebaseUser = _firebaseAuth.currentUser;
+    if (firebaseUser == null) throw Exception('Chưa đăng nhập');
+
+    try {
+      // Re-authenticate trước khi đổi mật khẩu
+      final credential = EmailAuthProvider.credential(
+        email: firebaseUser.email!,
+        password: oldPwd,
+      );
+      await firebaseUser.reauthenticateWithCredential(credential);
+      await firebaseUser.updatePassword(newPwd);
+    } on FirebaseAuthException catch (e) {
+      throw Exception(_mapFirebaseError(e));
     }
+  }
 
-    final res = await http.post(
-      Uri.parse('${AppConfig.baseUrl}/auth_change_password.php'),
-      headers: {'Content-Type': 'application/json; charset=UTF-8'},
-      body: jsonEncode({
-        'user_id': uid,
-        'old_password': oldPwd,
-        'new_password': newPwd,
-      }),
-    );
+  // ===== session =====
+  Future<void> logout() async {
+    await _ensureInit();
+    await _firebaseAuth.signOut(); // ✅ sign out Firebase
+    final box = _session;
+    if (box != null) {
+      await box.delete(_kCurrentUserKey);
+    }
+    notifyListeners();
+  }
 
-    final data = _decode(res);
-    if (res.statusCode != 200 || data['ok'] != true) {
-      throw Exception(data['error'] ?? 'Đổi mật khẩu thất bại');
+  Future<void> nukeSession() async {
+    await _ensureInit();
+    await _firebaseAuth.signOut();
+    final box = _session;
+    if (box != null) await box.clear();
+    notifyListeners();
+  }
+
+  // ===== Error mapping =====
+  String _mapFirebaseError(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'email-already-in-use':
+        return 'Email này đã được sử dụng';
+      case 'invalid-email':
+        return 'Email không hợp lệ';
+      case 'weak-password':
+        return 'Mật khẩu quá yếu (tối thiểu 6 ký tự)';
+      case 'user-not-found':
+        return 'Không tìm thấy tài khoản';
+      case 'wrong-password':
+        return 'Sai mật khẩu';
+      case 'too-many-requests':
+        return 'Quá nhiều lần thử. Vui lòng thử lại sau';
+      case 'network-request-failed':
+        return 'Lỗi kết nối mạng';
+      default:
+        return e.message ?? 'Đã xảy ra lỗi';
     }
   }
 }

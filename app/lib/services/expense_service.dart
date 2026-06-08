@@ -1,17 +1,19 @@
+// lib/services/expense_service.dart
+// ✅ Thay thế toàn bộ HTTP calls sang Firebase Firestore
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:http/http.dart' as http;
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/expense.dart';
-import '../utils/constants.dart';
 
 const _kExpenseBox = 'expenses_box';
 const _kSessionBox = 'session_box';
@@ -19,13 +21,16 @@ const _kCurrentUserKey = 'current_user';
 final _uuid = const Uuid();
 
 class ExpenseService extends ChangeNotifier {
-  Box? _box;                 // cache local (expenses + budget)
+  Box? _box;
   Box<String>? _session;
 
   bool _isSyncing = false;
   bool get isSyncing => _isSyncing;
 
-  // ===== Coalesce notify (gộp thông báo trong 1 microtask) =====
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  // ===== Coalesce notify =====
   bool _scheduledNotify = false;
   @override
   void notifyListeners() {
@@ -50,55 +55,27 @@ class ExpenseService extends ChangeNotifier {
       _session = Hive.box<String>(_kSessionBox);
     }
 
-    // Không gọi syncFromServer nhiều lần song song
     await syncFromServer();
   }
 
   // ===== Safe getters =====
   Box get _expenseBox {
     final b = _box;
-    if (b == null) throw StateError('ExpenseService not initialized. Call init() first.');
+    if (b == null) throw StateError('ExpenseService not initialized.');
     return b;
   }
 
-  Box<String> get _sessionBox {
-    final s = _session;
-    if (s == null) throw StateError('ExpenseService session not initialized. Call init() first.');
-    return s;
-  }
-
-  // ===== Per-user keys =====
+  // ===== Per-user helpers =====
+  String? _currentUserId() => _auth.currentUser?.uid;
   String _uidOrLocal() => _currentUserId() ?? 'local';
   String _expKey(String id) => 'exp:${_uidOrLocal()}:$id';
   String _budgetKey() => 'budget:${_uidOrLocal()}';
 
-  // ===== Helpers =====
-  String _absUrl(String raw) {
-    if (raw.startsWith('http') || raw.startsWith('file:')) return raw;
-    final base = AppConfig.baseUrl;
-    final b = base.endsWith('/') ? base.substring(0, base.length - 1) : base;
-    final pth = raw.startsWith('/') ? raw.substring(1) : raw;
-    return '$b/$pth';
-  }
-
-  Map<String, dynamic> _decode(http.Response res) {
-    try {
-      return jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
-    } catch (_) {
-      return {'ok': false, 'error': 'Phản hồi không hợp lệ từ server'};
-    }
-  }
-
-  String? _currentUserId() {
-    final raw = _sessionBox.get(_kCurrentUserKey);
-    if (raw == null) return null;
-    try {
-      final m = jsonDecode(raw) as Map<String, dynamic>;
-      final id = (m['id'] ?? '').toString();
-      return id.isEmpty ? null : id;
-    } catch (_) {
-      return null;
-    }
+  CollectionReference<Map<String, dynamic>> _expenseCollection(String uid) {
+    return _firestore
+        .collection('users')
+        .doc(uid)
+        .collection('expenses');
   }
 
   // ===== Budget (local, per-user) =====
@@ -109,27 +86,29 @@ class ExpenseService extends ChangeNotifier {
 
   Future<void> setMonthlyBudget(double v) async {
     await _expenseBox.put(_budgetKey(), v);
-    notifyListeners();
 
-    // optional push to server
+    // ✅ Lưu budget lên Firestore
     final uid = _currentUserId();
     if (uid != null) {
       try {
-        final res = await http.post(
-          Uri.parse('${AppConfig.baseUrl}/settings_set.php'),
-          headers: {'Content-Type': 'application/json; charset=UTF-8'},
-          body: jsonEncode({'user_id': int.parse(uid), 'monthly_budget': v}),
+        await _firestore.collection('users').doc(uid).set(
+          {'monthly_budget': v},
+          SetOptions(merge: true),
         );
-        _decode(res); // ignore error
       } catch (_) {}
     }
+
+    notifyListeners();
   }
 
   Future<double> getMonthlyBudget() async => monthlyBudget;
 
   // ===== CRUD =====
+
   Future<Expense> add(Expense e) async {
     final uid = _currentUserId();
+
+    // Offline / chưa đăng nhập → lưu local
     if (uid == null) {
       final id = _uuid.v4();
       final saved = e.copyWith(id: id);
@@ -138,24 +117,18 @@ class ExpenseService extends ChangeNotifier {
       return saved;
     }
 
-    final res = await http.post(
-      Uri.parse('${AppConfig.baseUrl}/expenses_create.php'),
-      headers: {'Content-Type': 'application/json; charset=UTF-8'},
-      body: jsonEncode({
-        'user_id': int.parse(uid),
-        'title': e.title,
-        'category': e.category,
-        'amount': e.amount.round(),
-        'spent_at': e.date.toIso8601String().replaceFirst('T', ' ').split('.').first,
-        'note': e.note ?? '',
-      }),
-    );
-    final data = _decode(res);
-    if (res.statusCode != 200 || data['ok'] != true) {
-      throw Exception(data['error'] ?? 'Thêm chi tiêu thất bại');
-    }
-    final serverId = (data['data']?['id'] ?? '').toString();
-    final saved = e.copyWith(id: serverId);
+    // ✅ Lưu lên Firestore
+    final ref = await _expenseCollection(uid).add({
+      'title': e.title,
+      'category': e.category,
+      'amount': e.amount,
+      'date': Timestamp.fromDate(e.date),
+      'note': e.note ?? '',
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
+    final saved = e.copyWith(id: ref.id);
     await _expenseBox.put(_expKey(saved.id), jsonEncode(saved.toJson()));
     notifyListeners();
     return saved;
@@ -169,23 +142,16 @@ class ExpenseService extends ChangeNotifier {
       return;
     }
 
-    final res = await http.put(
-      Uri.parse('${AppConfig.baseUrl}/expenses_update.php'),
-      headers: {'Content-Type': 'application/json; charset=UTF-8'},
-      body: jsonEncode({
-        'id': int.parse(e.id),
-        'user_id': int.parse(uid),
-        'title': e.title,
-        'category': e.category,
-        'amount': e.amount.round(),
-        'spent_at': e.date.toIso8601String().replaceFirst('T', ' ').split('.').first,
-        'note': e.note ?? '',
-      }),
-    );
-    final data = _decode(res);
-    if (res.statusCode != 200 || data['ok'] != true) {
-      throw Exception(data['error'] ?? 'Cập nhật thất bại');
-    }
+    // ✅ Cập nhật Firestore
+    await _expenseCollection(uid).doc(e.id).update({
+      'title': e.title,
+      'category': e.category,
+      'amount': e.amount,
+      'date': Timestamp.fromDate(e.date),
+      'note': e.note ?? '',
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
     await _expenseBox.put(_expKey(e.id), jsonEncode(e.toJson()));
     notifyListeners();
   }
@@ -193,15 +159,8 @@ class ExpenseService extends ChangeNotifier {
   Future<void> remove(String id) async {
     final uid = _currentUserId();
     if (uid != null) {
-      final res = await http.delete(
-        Uri.parse('${AppConfig.baseUrl}/expenses_delete.php'),
-        headers: {'Content-Type': 'application/json; charset=UTF-8'},
-        body: jsonEncode({'id': int.parse(id), 'user_id': int.parse(uid)}),
-      );
-      final data = _decode(res);
-      if (res.statusCode != 200 || data['ok'] != true) {
-        throw Exception(data['error'] ?? 'Xoá thất bại');
-      }
+      // ✅ Xoá trên Firestore
+      await _expenseCollection(uid).doc(id).delete();
     }
     await _expenseBox.delete(_expKey(id));
     notifyListeners();
@@ -212,12 +171,12 @@ class ExpenseService extends ChangeNotifier {
     return _expenseBox.keys
         .where((k) => (k is String) && k.startsWith(prefix))
         .map((k) {
-      final raw = _expenseBox.get(k);
-      if (raw is String) {
-        return Expense.fromJson(jsonDecode(raw) as Map<String, dynamic>);
-      }
-      return null;
-    })
+          final raw = _expenseBox.get(k);
+          if (raw is String) {
+            return Expense.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+          }
+          return null;
+        })
         .whereType<Expense>()
         .sortedBy((e) => e.date)
         .reversed
@@ -230,7 +189,7 @@ class ExpenseService extends ChangeNotifier {
     DateTime? to,
     String? category,
   }) {
-    String _normalize(String? input) {
+    String normalize(String? input) {
       if (input == null) return '';
       var s = input.toLowerCase();
       final reps = <String, String>{
@@ -248,18 +207,18 @@ class ExpenseService extends ChangeNotifier {
       return s;
     }
 
-    final L = all();
-    final nq = _normalize(q);
+    final list = all();
+    final nq = normalize(q);
 
-    return L.where((e) {
-      final titleN = _normalize(e.title);
-      final noteN  = _normalize(e.note ?? '');
-      final catN   = _normalize(e.category);
+    return list.where((e) {
+      final titleN = normalize(e.title);
+      final noteN = normalize(e.note ?? '');
+      final catN = normalize(e.category);
 
       final inQ = nq.isEmpty || titleN.contains(nq) || noteN.contains(nq) || catN.contains(nq);
       final inCat = category == null || category.isEmpty || e.category == category;
       final inFrom = from == null || !e.date.isBefore(from);
-      final inTo   = to == null   || !e.date.isAfter(to);
+      final inTo = to == null || !e.date.isAfter(to);
       return inQ && inCat && inFrom && inTo;
     }).toList();
   }
@@ -272,7 +231,7 @@ class ExpenseService extends ChangeNotifier {
     return filter(from: from, to: to);
   }
 
-  // ===== EXPORT CSV =====
+  // ===== Export CSV =====
   Future<String> exportCsv() async {
     final items = all();
     const header = 'id,title,category,amount,date,note';
@@ -282,16 +241,17 @@ class ExpenseService extends ChangeNotifier {
       return '"$v"';
     }
 
-    final lines = <String>[header, ...items.map((e) {
-      return [
-        esc(e.id),
-        esc(e.title),
-        esc(e.category),
-        e.amount.toStringAsFixed(0),
-        esc(e.date.toIso8601String()),
-        esc(e.note),
-      ].join(',');
-    })];
+    final lines = <String>[
+      header,
+      ...items.map((e) => [
+            esc(e.id),
+            esc(e.title),
+            esc(e.category),
+            e.amount.toStringAsFixed(0),
+            esc(e.date.toIso8601String()),
+            esc(e.note),
+          ].join(','))
+    ];
 
     final csv = lines.join('\n');
 
@@ -301,7 +261,11 @@ class ExpenseService extends ChangeNotifier {
     } catch (_) {}
     dir ??= await getApplicationDocumentsDirectory();
 
-    final ts = DateTime.now().toIso8601String().replaceAll(':', '').replaceAll('.', '').replaceAll('-', '');
+    final ts = DateTime.now()
+        .toIso8601String()
+        .replaceAll(':', '')
+        .replaceAll('.', '')
+        .replaceAll('-', '');
     final file = File(p.join(dir.path, 'expenses_$ts.csv'));
     await file.writeAsString(csv, encoding: utf8);
     return file.path;
@@ -327,111 +291,82 @@ class ExpenseService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// ✅ Sync từ Firestore về Hive (offline cache)
   Future<void> syncFromServer() async {
     final uid = _currentUserId();
     if (uid == null) return;
-    if (_isSyncing) return; // chặn chồng
+    if (_isSyncing) return;
 
     _isSyncing = true;
     notifyListeners();
 
     try {
-      final uri = Uri.parse('${AppConfig.baseUrl}/expenses_list.php')
-          .replace(queryParameters: {'user_id': uid});
-      final res = await http.get(uri);
-      final data = _decode(res);
-      if (res.statusCode != 200 || data['ok'] != true) {
-        return;
-      }
+      // Lấy danh sách expenses từ Firestore
+      final snapshot = await _expenseCollection(uid)
+          .orderBy('date', descending: true)
+          .limit(200)
+          .get();
 
-      final items = (data['data']?['items'] as List? ?? []).cast<Map<String, dynamic>>();
-
-      // clear cache hiện tại của user này
+      // Xoá cache cũ
       final prefix = 'exp:$uid:';
-      final keys = _expenseBox.keys.where((k) => (k is String) && k.startsWith(prefix)).toList();
+      final keys = _expenseBox.keys
+          .where((k) => (k is String) && k.startsWith(prefix))
+          .toList();
       for (final k in keys) {
         await _expenseBox.delete(k);
       }
 
-      for (final m in items) {
+      // Lưu cache mới từ Firestore
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final date = (data['date'] is Timestamp)
+            ? (data['date'] as Timestamp).toDate()
+            : DateTime.tryParse('${data['date']}') ?? DateTime.now();
+
         final e = Expense(
-          id: (m['id'] ?? '').toString(),
-          title: (m['title'] ?? m['note'] ?? '').toString(),
-          category: (m['category'] ?? 'Khác').toString(),
-          amount: (m['amount'] is num)
-              ? (m['amount'] as num).toDouble()
-              : (double.tryParse('${m['amount']}') ?? 0),
-          note: (m['note'] ?? '').toString(),
-          date: DateTime.tryParse((m['spent_at'] ?? m['date'] ?? '') as String) ?? DateTime.now(),
+          id: doc.id,
+          title: (data['title'] ?? '').toString(),
+          category: (data['category'] ?? 'Khác').toString(),
+          amount: (data['amount'] is num)
+              ? (data['amount'] as num).toDouble()
+              : (double.tryParse('${data['amount']}') ?? 0),
+          note: (data['note'] ?? '').toString(),
+          date: date,
         );
         await _expenseBox.put(_expKey(e.id), jsonEncode(e.toJson()));
       }
 
-      // budget
+      // Lấy budget từ Firestore
       try {
-        final s = await http.get(Uri.parse('${AppConfig.baseUrl}/settings_get.php?user_id=$uid'));
-        final j = _decode(s);
-        if (j['ok'] == true) {
-          final data = (j['data'] ?? {}) as Map<String, dynamic>;
-          final b = (data['monthly_budget'] ?? data['budget'] ?? 0).toString();
-          final v = double.tryParse(b);
-          if (v != null) await _expenseBox.put(_budgetKey(), v);
+        final userDoc = await _firestore.collection('users').doc(uid).get();
+        if (userDoc.exists) {
+          final budget = userDoc.data()?['monthly_budget'];
+          if (budget != null) {
+            await _expenseBox.put(_budgetKey(), (budget as num).toDouble());
+          }
         }
       } catch (_) {}
+    } catch (e) {
+      print('❌ Sync error: $e');
     } finally {
       _isSyncing = false;
       notifyListeners();
     }
   }
 
-  // ===== Attachments =====
+  // ===== Attachments (giữ lại, cần Firebase Storage nếu muốn dùng) =====
   Future<List<String>> uploadAttachments({
     required String expenseId,
     required List<XFile> files,
   }) async {
-    final uid = _currentUserId();
-    if (uid == null || expenseId.isEmpty || files.isEmpty) return const [];
-
-    final urls = <String>[];
-    for (final f in files) {
-      final uri = Uri.parse('${AppConfig.baseUrl}/attachments_upload.php');
-      final req = http.MultipartRequest('POST', uri)
-        ..fields['user_id'] = uid
-        ..fields['expense_id'] = expenseId
-        ..files.add(await http.MultipartFile.fromPath('file', f.path));
-      final res = await req.send();
-      final body = await res.stream.bytesToString();
-
-      try {
-        final j = jsonDecode(body) as Map<String, dynamic>;
-        if (res.statusCode == 200 && j['ok'] == true) {
-          final rel = (j['data']?['url'] ?? j['data']?['file_path'] ?? '').toString();
-          if (rel.isNotEmpty) urls.add(_absUrl(rel));
-        }
-      } catch (_) {}
-    }
-    return urls;
+    // TODO: Implement với Firebase Storage nếu cần
+    // import 'package:firebase_storage/firebase_storage.dart';
+    print('⚠️ uploadAttachments: chưa implement Firebase Storage');
+    return const [];
   }
 
   Future<List<String>> fetchAttachments(String expenseId) async {
-    if (expenseId.isEmpty) return const [];
-    try {
-      final uri = Uri.parse('${AppConfig.baseUrl}/attachments_list.php')
-          .replace(queryParameters: {'expense_id': expenseId});
-      final res = await http.get(uri);
-      final j = _decode(res);
-      if (res.statusCode != 200 || j['ok'] != true) return const [];
-
-      final items = (j['data']?['items'] as List? ?? []);
-      final urls = <String>[];
-      for (final it in items) {
-        final m = it as Map<String, dynamic>;
-        final raw = (m['url'] ?? m['file_path'] ?? '').toString();
-        if (raw.isNotEmpty) urls.add(_absUrl(raw));
-      }
-      return urls;
-    } catch (_) {
-      return const [];
-    }
+    // TODO: Implement với Firebase Storage nếu cần
+    return const [];
   }
 }
