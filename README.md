@@ -1,7 +1,7 @@
 # 📱 Personal Finance App – N03 (Quân • Hiếu • Cường)
 
 ## 📌 Giới thiệu dự án
-Đây là ứng dụng **quản lý thu chi cá nhân** được phát triển bởi nhóm sinh viên N03.  
+Đây là ứng dụng **quản lí chi tiêu cá nhân** được phát triển bởi nhóm sinh viên N03.  
 Ứng dụng giúp người dùng theo dõi các khoản **thu nhập, chi tiêu**, từ đó kiểm soát tài chính hiệu quả và hình thành thói quen quản lý tiền bạc tốt hơn.
 
 ---
