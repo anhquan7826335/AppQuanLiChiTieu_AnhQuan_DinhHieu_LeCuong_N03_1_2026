@@ -5,8 +5,8 @@ import '../../providers.dart';
 import '../../models/expense.dart';
 import '../../utils/currency_format.dart';
 import '../expenses/expense_detail_screen.dart';
-import '../../widgets/empty_placeholder.dart';
-import '../../widgets/expense_tile.dart';
+import '../../widget/empty_placeholder.dart';
+import '../../widget/expense_tile.dart';
 
 // Badge state
 import '../../services/notification_service.dart';

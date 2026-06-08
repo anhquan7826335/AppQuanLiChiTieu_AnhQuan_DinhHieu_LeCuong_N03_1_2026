@@ -1,103 +1,64 @@
-# 📱 Personal Finance App – N03 (Quân • Hiếu • Cường)
+# Personal Finance App – N03
 
-## 📌 Giới thiệu dự án
-Đây là ứng dụng **quản lý thu chi cá nhân** được phát triển bởi nhóm sinh viên N03.  
-Ứng dụng giúp người dùng theo dõi các khoản **thu nhập, chi tiêu**, từ đó kiểm soát tài chính hiệu quả và hình thành thói quen quản lý tiền bạc tốt hơn.
+Ứng dụng quản lý thu chi cá nhân N03 giúp người dùng theo dõi chi tiêu, ghi nhận thu nhập và kiểm soát tài chính hàng ngày.
 
----
+## 👨‍💻 Thành viên nhóm
+- **Lê Anh Quân** – 23010580
+- **Nguyễn Đình Hiếu** – 23010827
+- **Lê Mạnh Cường** – 23010224
 
-## 👨‍💻 Thành viên thực hiện
-- **Lê Anh Quân** – 23010580  
-- **Nguyễn Đình Hiếu** – 23010827  
-- **Lê Mạnh Cường** – 23010224  
+## 📌 Mục tiêu dự án
+- Xây dựng ứng dụng quản lý tài chính đơn giản, dễ dùng
+- Hiển thị tổng quan thu chi, số dư và lịch sử giao dịch
+- Áp dụng Flutter để phát triển app di động
+- Nâng cao kỹ năng teamwork và sử dụng GitHub
 
----
-
-## 📋 Phân công công việc (Giữa kỳ)
-
-| Thành viên | Công việc |
-|----------|--------|
-| Lê Anh Quân | Xây dựng **Trang About** (giới thiệu app & nhóm) |
-| Lê Mạnh Cường | Xây dựng **Trang Content** (danh sách thu/chi) |
-| Nguyễn Đình Hiếu | Xây dựng **Trang Home** (tổng quan tài chính) |
-
----
-
-## 🧩 Mô tả chức năng
-
+## 🧩 Chức năng chính
 ### 🏠 Home
-- Hiển thị tổng quan tài chính:
-  - Tổng thu  
-  - Tổng chi  
-  - Số dư  
-- Biểu đồ hoặc danh sách tóm tắt  
-- Có thể dùng layout từ About/Content  
-
----
+- Hiển thị tổng quan tài chính
+  - Tổng thu
+  - Tổng chi
+  - Số dư
+- Thống kê nhanh hoặc biểu đồ tóm tắt
+- Truy cập nhanh các tính năng chính của ứng dụng
 
 ### 📊 Content
-- Hiển thị danh sách giao dịch:
-  - Thu nhập 💰  
-  - Chi tiêu 💸  
-- Thông tin mỗi mục:
-  - Số tiền  
-  - Loại (ăn uống, học tập, giải trí…)  
-  - Thời gian  
-- Có thể mở rộng:
-  - Thêm / sửa / xoá giao dịch
- 
+- Hiển thị danh sách giao dịch thu/chi
+- Mỗi giao dịch gồm:
+  - Số tiền
+  - Loại chi tiêu/thu nhập (ăn uống, học tập, giải trí,...)
+  - Ngày giờ
+- Dự kiến mở rộng:
+  - Thêm giao dịch
+  - Chỉnh sửa giao dịch
+  - Xóa giao dịch
+
+### ℹ️ About
+- Giới thiệu ứng dụng và nhóm phát triển
+- Hướng dẫn sử dụng các chức năng cơ bản
+- Thông tin liên hệ hỗ trợ và phản hồi
+
+## 🚀 Công nghệ sử dụng
+- Flutter
+- Dart
+- Firebase (đã cấu hình trong dự án)
+
+## 🌱 Hướng phát triển tiếp theo
+- Thống kê chi tiêu theo tháng
+- Biểu đồ trực quan hơn
+- Lưu dữ liệu cục bộ hoặc đồng bộ lên Firebase
+- Đăng nhập người dùng và quản lý tài khoản
+
+## 🔧 Cách chạy dự án
+1. Cài đặt Flutter: https://flutter.dev/docs/get-started/install
+2. Chạy lệnh trong thư mục dự án:
+   ```bash
+   flutter pub get
+   flutter run
+   ```
 
 ---
 
-## ℹ️ About (Liên hệ & Hỗ trợ)
-
-Trang **About** trong ứng dụng được thiết kế theo hướng **hỗ trợ người dùng** trong quá trình sử dụng app quản lý thu chi cá nhân.
-
-### 📌 Nội dung chính
-- Giới thiệu ngắn gọn về ứng dụng  
-- Hướng dẫn sử dụng các chức năng cơ bản  
-- Cung cấp thông tin liên hệ hỗ trợ  
-
-
-### 💬 Phản hồi người dùng
-- Người dùng có thể gửi góp ý, báo lỗi hoặc đề xuất tính năng mới  
-- Hỗ trợ cải thiện trải nghiệm và nâng cấp ứng dụng trong tương lai  
-
-
----
-
-## 🎯 Mục tiêu
-- Xây dựng ứng dụng quản lý tài chính đơn giản, dễ dùng  
-- Áp dụng Flutter vào thực tế  
-- Phát triển kỹ năng teamwork & GitHub  
-
----
-
-## 🛠️ Công nghệ sử dụng
-- Flutter  
-- Dart  
-- Figma (thiết kế UI)  
-
----
-
-## 🔗 Thiết kế giao diện (Figma)
-- **About:**  
-  https://www.figma.com/proto/oZ6y2zCSyLZJXvDxA359LG/FREE-Mobile-App-Mockups--Community-?node-id=202-2948  
-
-- **Content:**  
-  https://www.figma.com/proto/oZ6y2zCSyLZJXvDxA359LG/FREE-Mobile-App-Mockups--Community-?node-id=202-1593  
-
----
-
-## 🚀 Định hướng phát triển
-- Thêm chức năng thống kê theo tháng  
-- Biểu đồ trực quan (chart)  
-- Lưu dữ liệu local / Firebase  
-- Đăng nhập người dùng  
-
----
-
-## 📦 Hướng dẫn chạy project
-```bash
-flutter pub get
-flutter run
+## 📄 Tài liệu tham khảo thiết kế
+- About: https://www.figma.com/proto/oZ6y2zCSyLZJXvDxA359LG/FREE-Mobile-App-Mockups--Community-?node-id=202-2948
+- Content: https://www.figma.com/proto/oZ6y2zCSyLZJXvDxA359LG/FREE-Mobile-App-Mockups--Community-?node-id=202-1593

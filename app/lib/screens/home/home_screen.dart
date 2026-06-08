@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../expenses/expense_list_screen.dart';
 import '../calendar/calendar_screen.dart';
 import '../analysis/analysis_screen.dart';
-import '../settings/settings_screen.dart';
+import '../setting/settings_screen.dart';
 import '../expenses/expense_form_screen.dart';
 
 // Badge
@@ -21,11 +21,11 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _index = 0;
 
-  late final List<Widget> _pages = const [
-    ExpenseListScreen(),
-    CalendarScreen(),
-    AnalysisScreen(),
-    SettingsScreen(),
+  late final List<Widget> _pages = [
+    const ExpenseListScreen(),
+    const CalendarScreen(),
+    const AnalysisScreen(),
+    const SettingsScreen(),
   ];
 
   @override

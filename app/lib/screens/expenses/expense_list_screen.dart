@@ -4,9 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers.dart';
 import '../../utils/currency_format.dart';
-import '../../widgets/empty_placeholder.dart';
-import '../../widgets/expense_tile.dart';
-import '../../widgets/category_dropdown.dart';
+import '../../widget/empty_placeholder.dart';
+import '../../widget/expense_tile.dart';
+import '../../widget/category_dropdown.dart';
 import 'expense_detail_screen.dart';
 
 class ExpenseListScreen extends ConsumerStatefulWidget {
