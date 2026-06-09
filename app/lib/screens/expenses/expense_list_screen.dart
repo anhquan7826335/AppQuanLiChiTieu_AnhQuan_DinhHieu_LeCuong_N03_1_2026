@@ -4,9 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers.dart';
 import '../../utils/currency_format.dart';
-import '../../widget/empty_placeholder.dart';
-import '../../widget/expense_tile.dart';
-import '../../widget/category_dropdown.dart';
+import '../../widgets/empty_placeholder.dart';
+import '../../widgets/expense_tile.dart';
+import '../../widgets/category_dropdown.dart';
 import 'expense_detail_screen.dart';
 
 class ExpenseListScreen extends ConsumerStatefulWidget {
@@ -56,10 +56,10 @@ class _ExpenseListScreenState extends ConsumerState<ExpenseListScreen> {
     return SafeArea(
       child: CustomScrollView(
         slivers: [
-          SliverAppBar(
+          const SliverAppBar(
             pinned: true,
             automaticallyImplyLeading: false,
-            title: const Text('Trang chủ'),
+            title: Text('Trang chủ'),
             centerTitle: false,
           ),
 
@@ -111,24 +111,27 @@ class _ExpenseListScreenState extends ConsumerState<ExpenseListScreen> {
                   const SizedBox(height: 8),
 
                   // ===== Chips thông tin nhanh =====
-                  Row(
-                    children: [
-                      Chip(label: Text('Số bản ghi: ${filtered.length}')),
-                      const SizedBox(width: 8),
-                      Chip(label: Text('Tổng: ${CurF.money(total)}')),
-                      const SizedBox(width: 8),
-                      if (budget > 0)
-                        Chip(label: Text('Ngân sách: ${CurF.money(budget)}')),
-                      const SizedBox(width: 8),
-                      if (budget > 0)
-                        Chip(
-                          avatar: const Icon(
-                            Icons.account_balance_wallet_rounded,
-                            size: 16,
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        Chip(label: Text('Số bản ghi: ${filtered.length}')),
+                        const SizedBox(width: 8),
+                        Chip(label: Text('Tổng: ${CurF.money(total)}')),
+                        const SizedBox(width: 8),
+                        if (budget > 0)
+                          Chip(label: Text('Ngân sách: ${CurF.money(budget)}')),
+                        const SizedBox(width: 8),
+                        if (budget > 0)
+                          Chip(
+                            avatar: const Icon(
+                              Icons.account_balance_wallet_rounded,
+                              size: 16,
+                            ),
+                            label: Text('Còn lại: ${CurF.money(remain)}'),
                           ),
-                          label: Text('Còn lại: ${CurF.money(remain)}'),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -311,13 +314,16 @@ class _MonthSwitcher extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            tab(leftLabel, -1),
-            tab(centerLabel, 0),
-            tab(rightLabel, 1),
-          ],
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,              
+            children: [
+              tab(leftLabel, -1),
+              tab(centerLabel, 0),
+              tab(rightLabel, 1),
+            ],
+          ),
         ),
       ),
     );
