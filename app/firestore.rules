@@ -1,0 +1,34 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Hàm kiểm tra người dùng đã đăng nhập (Có Token hợp lệ)
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Hàm kiểm tra role admin bằng cách đọc document trong collection users
+    function isAdmin() {
+      return isAuthenticated() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Phân quyền cho collection 'users'
+    match /users/{userId} {
+      // Mọi người chỉ được xem và sửa thông tin của chính mình. 
+      // Admin có thể đọc và xóa toàn bộ user.
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      // User tự sửa thông tin nhưng KHÔNG được sửa trường 'role'. Hoặc Admin có toàn quyền sửa.
+      allow update: if (isAuthenticated() && request.auth.uid == userId && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role'])) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Phân quyền cho collection 'expenses' (Chi tiêu)
+    match /expenses/{expenseId} {
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+  }
+}
